@@ -1,5 +1,6 @@
 using ComputerLogger.Service;
 using ComputerLogger.Service.Configuration;
+using ComputerLogger.Service.Services;
 using ComputerLogger.Service.Services.HardwareReading;
 using ComputerLogger.Service.Services.Mqtt;
 using Microsoft.Extensions.Logging.EventLog;
@@ -15,6 +16,7 @@ builder.Services.Configure<MonitoringOptions>(builder.Configuration.GetSection(M
 
 if (OperatingSystem.IsWindows()) builder.Services.AddSingleton<IPowerReader, HardwareMonitorService>();
 else builder.Services.AddSingleton<IPowerReader, LinuxPowerReader>();
+builder.Services.AddSingleton<SystemShutdownService>();
 builder.Services.AddSingleton<MqttPublisherService>();
 builder.Services.AddHostedService<Worker>();
 builder.Services.AddWindowsService(options =>

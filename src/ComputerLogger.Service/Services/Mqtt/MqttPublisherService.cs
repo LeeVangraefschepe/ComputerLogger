@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using ComputerLogger.Service.Configuration;
+using ComputerLogger.Service.Services;
 using ComputerLogger.Service.Services.HardwareReading;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -19,18 +20,26 @@ public sealed class MqttPublisherService : IAsyncDisposable
     private readonly ILogger<MqttPublisherService> logger;
     private readonly string devicePrefix;
     private readonly string stateTopic;
+    private readonly string shutdownCommandTopic;
+    private readonly string shutdownStateTopic;
+    private readonly SystemShutdownService shutdownService;
     private readonly SemaphoreSlim connectLock = new(1, 1);
     private bool discoveryPublished;
 
-    public MqttPublisherService(IOptions<MqttOptions> options, ILogger<MqttPublisherService> logger)
+    public MqttPublisherService(IOptions<MqttOptions> options, SystemShutdownService shutdownService, ILogger<MqttPublisherService> logger)
     {
+        this.shutdownService = shutdownService;
         this.options = options.Value;
         this.logger = logger;
         devicePrefix = Slugify(this.options.DevicePrefix);
         stateTopic = $"{this.options.DiscoveryPrefix}/sensor/{devicePrefix}/state";
 
+        shutdownCommandTopic = $"{this.options.DiscoveryPrefix}/switch/{devicePrefix}_shutdown/set";
+        shutdownStateTopic = $"{this.options.DiscoveryPrefix}/switch/{devicePrefix}_shutdown/state";
+
         var factory = new MqttClientFactory();
         client = factory.CreateMqttClient();
+        client.ApplicationMessageReceivedAsync += OnMessageReceivedAsync;
 
         var optionsBuilder = new MqttClientOptionsBuilder()
             .WithTcpServer(this.options.Host, this.options.Port)
@@ -88,7 +97,32 @@ public sealed class MqttPublisherService : IAsyncDisposable
             await PublishAsync(DiscoveryConfigTopic(key), payload, retain: true, cancellationToken);
         }
 
+        var shutdownConfig = new
+        {
+            name = $"{options.DeviceName} Shutdown",
+            unique_id = $"energylogger_{devicePrefix}_shutdown",
+            command_topic = shutdownCommandTopic,
+            state_topic = shutdownStateTopic,
+            payload_on = "ON",
+            payload_off = "OFF",
+            icon = "mdi:power",
+            device,
+        };
+        await PublishAsync($"{options.DiscoveryPrefix}/switch/{devicePrefix}_shutdown/config", JsonSerializer.Serialize(shutdownConfig), retain: true, cancellationToken);
+        await PublishAsync(shutdownStateTopic, "OFF", retain: true, cancellationToken);
+
         discoveryPublished = true;
+    }
+
+    private async Task OnMessageReceivedAsync(MqttApplicationMessageReceivedEventArgs e)
+    {
+        // Retained messages are ignored so a stale ON can never shut the machine down again after boot
+        if (e.ApplicationMessage.Topic != shutdownCommandTopic || e.ApplicationMessage.Retain) return;
+        if (!string.Equals(e.ApplicationMessage.ConvertPayloadToString()?.Trim(), "ON", StringComparison.OrdinalIgnoreCase)) return;
+
+        // Reset the flag first so it is already false when the machine comes back up
+        await PublishAsync(shutdownStateTopic, "OFF", retain: true, CancellationToken.None);
+        shutdownService.Shutdown();
     }
 
     private static string FriendlyNameSuffix(string key) => key switch
@@ -144,6 +178,7 @@ public sealed class MqttPublisherService : IAsyncDisposable
 
             logger.LogInformation("Connecting to MQTT broker at {Host}:{Port}...", options.Host, options.Port);
             await client.ConnectAsync(clientOptions, cancellationToken);
+            await client.SubscribeAsync(new MqttClientSubscribeOptionsBuilder().WithTopicFilter(shutdownCommandTopic).Build(), cancellationToken);
             discoveryPublished = false; // republish discovery configs after every (re)connect
         }
         catch (Exception ex)
