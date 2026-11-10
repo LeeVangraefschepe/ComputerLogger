@@ -8,5 +8,6 @@ RUN dotnet publish src/ComputerLogger.Service/ComputerLogger.Service.csproj -c R
 FROM mcr.microsoft.com/dotnet/runtime:10.0
 WORKDIR /app
 COPY --from=build /app .
-USER root # Reading RAPL energy counters requires root on most kernels
+# Reading RAPL energy counters requires root on most kernels
+USER root
 ENTRYPOINT ["dotnet", "ComputerLogger.Service.dll"]

@@ -7,4 +7,5 @@ publish/
 
 *appsettings.json
 *appsettings.Development.json
-*compose.yml
+docker-compose*
+*.tar
