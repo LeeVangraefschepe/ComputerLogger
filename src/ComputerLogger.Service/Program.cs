@@ -13,16 +13,17 @@ var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
 builder.Services.Configure<MqttOptions>(builder.Configuration.GetSection(MqttOptions.SectionName));
 builder.Services.Configure<MonitoringOptions>(builder.Configuration.GetSection(MonitoringOptions.SectionName));
 
-builder.Services.AddSingleton<HardwareMonitorService>();
+if (OperatingSystem.IsWindows()) builder.Services.AddSingleton<IPowerReader, HardwareMonitorService>();
+else builder.Services.AddSingleton<IPowerReader, LinuxPowerReader>();
 builder.Services.AddSingleton<MqttPublisherService>();
 builder.Services.AddHostedService<Worker>();
 builder.Services.AddWindowsService(options =>
 {
     options.ServiceName = "ComputerLogger";
 });
-builder.Services.Configure<EventLogSettings>(settings =>
+if (OperatingSystem.IsWindows()) builder.Services.Configure<EventLogSettings>(settings =>
 {
-    settings.SourceName = "ComputerLogger";
+    if (OperatingSystem.IsWindows()) settings.SourceName = "ComputerLogger";
 });
 
 var host = builder.Build();

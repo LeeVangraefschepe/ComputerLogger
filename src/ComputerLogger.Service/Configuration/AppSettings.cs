@@ -4,7 +4,7 @@ public sealed class MqttOptions
 {
     public const string SectionName = "Mqtt";
     
-    public string Host { get; set; } = "192.168.50.101"; // Broker hostname or IP
+    public string Host { get; set; } = "127.0.0.1"; // Broker hostname or IP
     public int Port { get; set; } = 1883; // Broker port
     public string Username { get; set; } = ""; // Username credential for MQTT broker
     public string Password { get; set; } = ""; // Password credential for MQTT broker

@@ -9,13 +9,13 @@ namespace ComputerLogger.Service;
 public sealed class Worker : BackgroundService
 {
     private readonly ILogger<Worker> _logger;
-    private readonly HardwareMonitorService _hardwareMonitor;
+    private readonly IPowerReader _hardwareMonitor;
     private readonly MqttPublisherService _mqttPublisher;
     private readonly MonitoringOptions _monitoringOptions;
 
     public Worker(
         ILogger<Worker> logger,
-        HardwareMonitorService hardwareMonitor,
+        IPowerReader hardwareMonitor,
         MqttPublisherService mqttPublisher,
         IOptions<MonitoringOptions> monitoringOptions)
     {

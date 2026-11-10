@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 namespace ComputerLogger.Service.Services.HardwareReading;
 
 // Wraps LibreHardwareMonitorLib to expose the CPU package and GPU power sensors
-public sealed class HardwareMonitorService : IDisposable
+public sealed class HardwareMonitorService : IPowerReader, IDisposable
 {
     private readonly Computer computer;
     private readonly UpdateVisitor updateVisitor = new();
